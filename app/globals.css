@@ -2,58 +2,97 @@
 
 @layer base {
   :root {
-    --background: #0b132b;
-    --surface: #111d38;
-    --surface-card: #152244;
-    --surface-border: #1e2f5b;
-    --foreground: #f1f5f9;
-    --foreground-muted: #94a3b8;
+    /* Day Theme Tokens (Light Mode) */
+    --bg-page: #f5f7fb;
+    --bg-surface: #ffffff;
+    --bg-card: #ffffff;
+    --bg-card-hover: #f8fafc;
+    --border: #e2e8f0;
+    --border-strong: #cbd5e1;
+    --text-main: #172033;
+    --text-muted: #5b6577;
+    --text-dim: #94a3b8;
+    
     --primary: #2563eb;
     --primary-hover: #1d4ed8;
-    --accent-green: #10b981;
-    --accent-orange: #f59e0b;
-    --accent-red: #ef4444;
-    --accent-purple: #8b5cf6;
-    --accent-cyan: #06b6d4;
+    --primary-light: #eff6ff;
+    --secondary-accent: #0d9488;
+    --warning: #d97706;
+    --warning-bg: #fffbeb;
+    --critical: #dc2626;
+    --critical-bg: #fef2f2;
+    --success: #16a34a;
+    --success-bg: #f0fdf4;
+    
+    --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+    --card-shadow-hover: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.08);
+  }
+
+  html.dark {
+    /* Night Theme Tokens (Dark Mode) */
+    --bg-page: #0b1220;
+    --bg-surface: #0f172a;
+    --bg-card: #111c30;
+    --bg-card-hover: #16243e;
+    --border: #263650;
+    --border-strong: #334769;
+    --text-main: #f1f5f9;
+    --text-muted: #a7b4c8;
+    --text-dim: #64748b;
+    
+    --primary: #60a5fa;
+    --primary-hover: #3b82f6;
+    --primary-light: rgba(96, 165, 250, 0.12);
+    --secondary-accent: #2dd4bf;
+    --warning: #f59e0b;
+    --warning-bg: rgba(245, 158, 11, 0.12);
+    --critical: #ef4444;
+    --critical-bg: rgba(239, 68, 68, 0.12);
+    --success: #10b981;
+    --success-bg: rgba(16, 185, 129, 0.12);
+    
+    --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+    --card-shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -4px rgba(0, 0, 0, 0.4);
   }
 
   body {
-    background-color: #0b132b;
-    color: #f1f5f9;
+    background-color: var(--bg-page);
+    color: var(--text-main);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     min-height: 100vh;
     overflow-x: hidden;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 }
 
-/* Custom crisp dark scrollbars for government analytics dense view */
+/* Custom Scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0b132b;
+  background: var(--bg-page);
 }
 ::-webkit-scrollbar-thumb {
-  background: #1e2f5b;
+  background: var(--border);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3b82f6;
+  background: var(--primary);
 }
 
-/* Cytoscape container styling */
+/* Cytoscape Graph Container */
 .cytoscape-container {
   width: 100%;
   height: 100%;
   position: relative;
-  background-color: #080d1f;
-  background-image: 
-    radial-gradient(rgba(37, 99, 235, 0.08) 1px, transparent 1px);
+  background-color: var(--bg-page);
+  background-image: radial-gradient(var(--border) 1.2px, transparent 1.2px);
   background-size: 24px 24px;
+  transition: background-color 0.2s ease;
 }
 
-/* Printable report styles */
+/* Printable Report Styles */
 @media print {
   .no-print {
     display: none !important;

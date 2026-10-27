@@ -102,31 +102,43 @@ export class EntityResolutionService {
 
   /**
    * Scan an array of entities and detect all candidate duplicates across the system or case
+   * Optimized with entityType partitioning to eliminate cross-type comparisons (O(K * (N/K)^2))
    */
   public static findDuplicateCandidates(entities: Entity[]): EntityMatchCandidate[] {
     const candidates: EntityMatchCandidate[] = [];
 
-    for (let i = 0; i < entities.length; i++) {
-      for (let j = i + 1; j < entities.length; j++) {
-        const entA = entities[i];
-        const entB = entities[j];
+    // Bucket unmerged entities by entityType
+    const byType = new Map<string, Entity[]>();
+    for (const ent of entities) {
+      if (ent.mergedIntoId) continue;
+      const group = byType.get(ent.entityType);
+      if (group) group.push(ent);
+      else byType.set(ent.entityType, [ent]);
+    }
 
-        // Skip if already merged
-        if (entA.mergedIntoId || entB.mergedIntoId || entA.id === entB.id) continue;
+    // Only compare entities within the same entityType
+    for (const [, group] of byType) {
+      const len = group.length;
+      for (let i = 0; i < len; i++) {
+        for (let j = i + 1; j < len; j++) {
+          const entA = group[i];
+          const entB = group[j];
+          if (entA.id === entB.id) continue;
 
-        const comparison = this.compareEntities(entA, entB);
-        if (comparison.isCandidate) {
-          candidates.push({
-            id: `match-${entA.id.slice(0, 8)}-${entB.id.slice(0, 8)}`,
-            sourceEntityId: entA.id,
-            candidateEntityId: entB.id,
-            sourceEntity: entA,
-            candidateEntity: entB,
-            matchScore: comparison.matchScore,
-            matchingSignals: comparison.signals,
-            status: 'PENDING',
-            createdAt: new Date().toISOString(),
-          });
+          const comparison = this.compareEntities(entA, entB);
+          if (comparison.isCandidate) {
+            candidates.push({
+              id: `match-${entA.id.slice(0, 8)}-${entB.id.slice(0, 8)}`,
+              sourceEntityId: entA.id,
+              candidateEntityId: entB.id,
+              sourceEntity: entA,
+              candidateEntity: entB,
+              matchScore: comparison.matchScore,
+              matchingSignals: comparison.signals,
+              status: 'PENDING',
+              createdAt: new Date().toISOString(),
+            });
+          }
         }
       }
     }

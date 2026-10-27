@@ -14,17 +14,25 @@ import {
   Hash,
   Copy,
   Calendar,
-  Layers
+  Layers,
+  Info,
+  Check,
+  XCircle,
+  FileText,
 } from 'lucide-react';
 import { EvidenceRecord } from '@/types/investigation';
 import { verifyEvidenceChain } from '@/lib/crypto';
+import { HelpTooltip } from '@/components/common/TerminologyModal';
 
 interface EvidenceChainViewerProps {
   evidenceList: EvidenceRecord[];
   onSelectEvidence?: (record: EvidenceRecord) => void;
 }
 
-export default function EvidenceChainViewer({ evidenceList, onSelectEvidence }: EvidenceChainViewerProps) {
+export default function EvidenceChainViewer({
+  evidenceList,
+  onSelectEvidence,
+}: EvidenceChainViewerProps) {
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
   const [verificationResult, setVerificationResult] = useState<{
     isValid: boolean;
@@ -32,6 +40,7 @@ export default function EvidenceChainViewer({ evidenceList, onSelectEvidence }: 
     error?: string;
   } | null>(null);
   const [isVerifying, setIsVerifying] = useState<boolean>(false);
+  const [selectedRecord, setSelectedRecord] = useState<EvidenceRecord | null>(null);
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -45,189 +54,243 @@ export default function EvidenceChainViewer({ evidenceList, onSelectEvidence }: 
       const res = verifyEvidenceChain(evidenceList);
       setVerificationResult(res);
       setIsVerifying(false);
-    }, 400);
+    }, 350);
   };
 
   return (
     <div className="space-y-6">
-      {/* Chain Status Card */}
-      <div className="bg-[#0d1633] border border-[#1e2f5b] rounded-lg p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-md">
+      {/* 1. Tamper-Evident Header Card */}
+      <div className="p-5 md:p-6 rounded-2xl border border-slate-200 dark:border-[#263650] bg-white dark:bg-[#111c30] shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors duration-200">
         <div className="flex items-start space-x-3.5">
-          <div className="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mt-0.5">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0">
             <ShieldCheck className="w-6 h-6" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h3 className="text-sm font-bold text-slate-100">Tamper-Evident Evidence Chain</h3>
-              <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-mono px-2 py-0.5 rounded border border-emerald-500/30 font-semibold">
-                SHA-256 VERIFIED
+              <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                Tamper-Evident Audit Chain
+              </h3>
+              <span className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 font-mono px-2 py-0.5 rounded border border-emerald-500/30 font-semibold">
+                SHA-256 LEDGER
               </span>
             </div>
-            <p className="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">
-              Every item of electronic evidence is hashed using SHA-256 and linked sequentially to the preceding evidence record, creating an auditable cryptographic proof of custody and immutability.
+            <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 max-w-2xl leading-relaxed">
+              Every seized electronic record (CDR, banking log, FIR, or mobile dump) is hashed using SHA-256 and chained to the previous record block, creating an unbroken chain of custody.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-3 flex-shrink-0">
           <button
             onClick={handleRunIntegrityVerification}
             disabled={isVerifying}
-            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded bg-blue-600 hover:bg-blue-500 text-white transition disabled:opacity-50"
+            className="flex items-center space-x-1.5 px-4 py-2 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition shadow-sm disabled:opacity-50"
           >
             <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>{isVerifying ? 'Verifying Hashes...' : 'Verify Cryptographic Chain'}</span>
+            <span>{isVerifying ? 'Verifying Block Hashes...' : 'Verify Cryptographic Chain'}</span>
           </button>
         </div>
       </div>
 
-      {/* Verification result feedback banner */}
+      {/* 2. Plain-Language Explanation & Disclaimers */}
+      <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#0f172a] border border-slate-200 dark:border-[#1e2f5b] text-xs text-slate-600 dark:text-slate-300 space-y-1.5">
+        <div className="flex items-center space-x-2 text-blue-600 dark:text-blue-400 font-bold">
+          <Info className="w-4 h-4 flex-shrink-0" />
+          <span>Understanding Integrity Verification in Law Enforcement</span>
+        </div>
+        <p className="leading-relaxed">
+          <strong>What this check proves:</strong> Verification confirms that the current file matches its previously recorded SHA-256 cryptographic fingerprint, proving the electronic bytes have not been tampered with or altered in storage since ingest.
+        </p>
+        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+          ⚠️ <em>Evidentiary Notice:</em> A matching hash proves file integrity; it does not automatically prove the original source information was truthful or lawfully obtained.
+        </p>
+      </div>
+
+      {/* 3. Verification Result Banner */}
       {verificationResult && (
         <div
-          className={`p-3 rounded-lg border text-xs flex items-center space-x-2.5 animate-in fade-in duration-200 ${
+          className={`p-4 rounded-xl border text-xs flex items-center space-x-3 animate-in fade-in duration-200 ${
             verificationResult.isValid
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-              : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+              ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50 text-emerald-800 dark:text-emerald-300'
+              : 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800/50 text-rose-800 dark:text-rose-300'
           }`}
         >
           {verificationResult.isValid ? (
             <>
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-              <span>
-                <strong>Chain Verified:</strong> All {evidenceList.length} evidence blocks have matching cryptographic hashes. Zero tampering detected.
-              </span>
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+              <div>
+                <div className="font-bold">Verified Fingerprint Match (Chain Intact)</div>
+                <div className="text-[11px] mt-0.5">
+                  All {evidenceList.length} evidence blocks match their recorded SHA-256 hashes and previous block hashes sequentially. Zero byte corruption or tampering detected.
+                </div>
+              </div>
             </>
           ) : (
             <>
-              <AlertTriangle className="w-4 h-4 text-rose-400 flex-shrink-0" />
-              <span>
-                <strong>Integrity Failure:</strong> {verificationResult.error}
-              </span>
+              <XCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 flex-shrink-0" />
+              <div>
+                <div className="font-bold">Fingerprint Mismatch Detected!</div>
+                <div className="text-[11px] mt-0.5">
+                  Block #{verificationResult.brokenBlockIndex} hash does not match previous link: {verificationResult.error}
+                </div>
+              </div>
             </>
           )}
         </div>
       )}
 
-      {/* Sequential Chain of Blocks */}
-      <div className="space-y-4">
-        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
-          <span>Evidence Blocks Sequence ({evidenceList.length} Records)</span>
-          <span className="text-[11px] text-slate-500">Ordered by Chain Index</span>
+      {/* 4. Sequential Evidence Blocks List */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 px-1 font-semibold">
+          <span>Sequential Custody Blocks ({evidenceList.length} records)</span>
+          <span>Click any block to inspect details</span>
         </div>
 
         {evidenceList.map((record, index) => {
-          const isGenesis = record.previousHash === '0000000000000000000000000000000000000000000000000000000000000000';
-
+          const isVerified = record.isVerified ?? true;
           return (
-            <div key={record.id} className="relative">
-              {/* Connector Link between blocks */}
-              {index > 0 && (
-                <div className="flex items-center justify-center my-1">
-                  <div className="flex items-center space-x-2 bg-[#132042] px-2.5 py-0.5 rounded-full border border-[#23386e] text-[10px] text-slate-400 font-mono">
-                    <LinkIcon className="w-3 h-3 text-cyan-400" />
-                    <span>Previous Hash Linked</span>
+            <div
+              key={record.id}
+              onClick={() => setSelectedRecord(record)}
+              className="p-4 rounded-xl border border-slate-200 dark:border-[#263650] bg-white dark:bg-[#111c30] hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md transition cursor-pointer space-y-2.5"
+            >
+              {/* Row 1: Block #, File Name, Format Badge, Status */}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center space-x-2.5">
+                  <span className="font-mono text-xs font-black text-slate-400 bg-slate-100 dark:bg-[#0f172a] px-2 py-0.5 rounded border border-slate-200 dark:border-[#1e2f5b]">
+                    BLOCK #{index + 1}
+                  </span>
+                  <div className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white flex items-center space-x-1.5">
+                    <FileText className="w-4 h-4 text-blue-500" />
+                    <span>{record.filename}</span>
                   </div>
-                </div>
-              )}
-
-              <div
-                onClick={() => onSelectEvidence && onSelectEvidence(record)}
-                className="bg-[#0d1633] border border-[#1e2f5b] hover:border-blue-500/50 rounded-lg p-4 transition shadow cursor-pointer group"
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#18274d] gap-2">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-7 h-7 rounded bg-blue-500/20 border border-blue-400/30 flex items-center justify-center font-mono text-xs font-bold text-blue-300">
-                      #{record.blockIndex}
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-semibold text-slate-100 group-hover:text-blue-300 transition">
-                        {record.fileName}
-                      </h4>
-                      <div className="text-[11px] text-slate-400 flex items-center space-x-2 mt-0.5">
-                        <span className="font-mono text-blue-300">{record.caseNumber || 'CASE-2026-001'}</span>
-                        <span>•</span>
-                        <span>{record.sourceType.replace(/_/g, ' ')}</span>
-                        <span>•</span>
-                        <span>{(record.fileSize / 1024).toFixed(1)} KB</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-2 text-xs">
-                    <span className="flex items-center space-x-1 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-semibold">
-                      <Lock className="w-3 h-3" />
-                      <span>{record.integrityStatus}</span>
-                    </span>
-                    <span className="text-[11px] font-mono text-slate-400 hidden md:inline">
-                      {new Date(record.createdAt).toLocaleDateString('en-IN')}
-                    </span>
-                  </div>
+                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-100 dark:bg-[#0f172a] text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#1e2f5b]">
+                    {record.fileType}
+                  </span>
                 </div>
 
-                {/* Cryptographic Hashes Details */}
-                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs font-mono">
-                  {/* Current Block Hash */}
-                  <div className="bg-[#132042] p-2 rounded border border-[#23386e]">
-                    <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
-                      <span className="text-cyan-400 font-sans font-semibold">Current Block SHA-256</span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCopy(record.sha256Hash);
-                        }}
-                        className="hover:text-white flex items-center space-x-0.5"
-                      >
-                        <Copy className="w-2.5 h-2.5" />
-                        <span>{copiedHash === record.sha256Hash ? 'Copied' : 'Copy'}</span>
-                      </button>
-                    </div>
-                    <div className="text-slate-200 text-[11px] truncate select-all">
+                <div className="flex items-center space-x-2">
+                  <span
+                    className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold ${
+                      isVerified
+                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40'
+                        : 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800/40'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-3 h-3" />
+                    <span>{isVerified ? 'Verified Match' : 'Pending Verification'}</span>
+                  </span>
+                  <span className="text-[11px] font-mono text-blue-600 dark:text-blue-400 font-bold">
+                    {record.caseNumber || record.caseId}
+                  </span>
+                </div>
+              </div>
+
+              {/* Row 2: SHA-256 Hashes (Current + Previous) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px]">
+                <div className="p-2 rounded-lg bg-slate-50 dark:bg-[#0f172a] border border-slate-200 dark:border-[#1e2f5b] flex items-center justify-between">
+                  <div className="truncate mr-2">
+                    <span className="text-slate-400 font-semibold block text-[10px]">CURRENT SHA-256</span>
+                    <span className="font-mono text-slate-700 dark:text-slate-300 truncate block select-all">
                       {record.sha256Hash}
-                    </div>
+                    </span>
                   </div>
-
-                  {/* Previous Block Hash */}
-                  <div className="bg-[#132042] p-2 rounded border border-[#23386e]">
-                    <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
-                      <span className="text-amber-400 font-sans font-semibold">
-                        {isGenesis ? 'Genesis Block (Root)' : 'Previous Block Hash (Parent)'}
-                      </span>
-                      {!isGenesis && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCopy(record.previousHash);
-                          }}
-                          className="hover:text-white flex items-center space-x-0.5"
-                        >
-                          <Copy className="w-2.5 h-2.5" />
-                          <span>{copiedHash === record.previousHash ? 'Copied' : 'Copy'}</span>
-                        </button>
-                      )}
-                    </div>
-                    <div className="text-slate-400 text-[11px] truncate select-all">
-                      {record.previousHash}
-                    </div>
-                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCopy(record.sha256Hash);
+                    }}
+                    className="p-1 text-slate-400 hover:text-blue-500"
+                    title="Copy hash"
+                  >
+                    {copiedHash === record.sha256Hash ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
                 </div>
 
-                {/* Extracted Stats */}
-                <div className="mt-3 flex items-center justify-between pt-2 border-t border-[#18274d] text-[11px] text-slate-400">
-                  <div className="flex items-center space-x-4">
-                    <span>Uploaded by: <strong className="text-slate-200">{record.uploadedByName || 'Authorized Officer'}</strong></span>
-                    <span>Indexed Entities: <strong className="text-blue-300">{record.extractedEntitiesCount || 0}</strong></span>
-                    <span>Relationships: <strong className="text-blue-300">{record.extractedRelationshipsCount || 0}</strong></span>
+                <div className="p-2 rounded-lg bg-slate-50 dark:bg-[#0f172a] border border-slate-200 dark:border-[#1e2f5b] flex items-center justify-between">
+                  <div className="truncate mr-2">
+                    <span className="text-slate-400 font-semibold block text-[10px]">PREVIOUS BLOCK HASH</span>
+                    <span className="font-mono text-slate-500 dark:text-slate-400 truncate block select-all">
+                      {record.previousHash || 'GENESIS_BLOCK_00000000000000000000'}
+                    </span>
                   </div>
-                  <div className="text-blue-400 group-hover:translate-x-0.5 transition flex items-center space-x-1 text-xs font-semibold">
-                    <span>Inspect Evidence</span>
-                    <span>→</span>
-                  </div>
+                  <LinkIcon className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                </div>
+              </div>
+
+              {/* Row 3: Metadata: Uploaded By, Source, Extracted Entities, Size */}
+              <div className="flex flex-wrap items-center justify-between pt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                <div className="flex items-center space-x-3">
+                  <span>Uploaded by: <strong className="text-slate-700 dark:text-slate-300">{record.uploadedByName || 'Forensic Officer'}</strong></span>
+                  <span>•</span>
+                  <span>Source: <strong className="text-slate-700 dark:text-slate-300">{record.sourceReference || 'Seized Evidence'}</strong></span>
+                </div>
+                <div>
+                  Date: {new Date(record.uploadedAt).toLocaleDateString('en-IN')}
                 </div>
               </div>
             </div>
           );
         })}
       </div>
+
+      {/* Selected Evidence Details Modal */}
+      {selectedRecord && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-[#111c30] border border-slate-200 dark:border-[#263650] rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
+                  Electronic Evidence Dossier
+                </span>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white mt-0.5">
+                  {selectedRecord.filename}
+                </h3>
+              </div>
+              <button
+                onClick={() => setSelectedRecord(null)}
+                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300 divide-y divide-slate-100 dark:divide-[#1e2f5b]">
+              <div className="py-2 flex justify-between">
+                <span className="text-slate-400">Case Docket:</span>
+                <span className="font-bold text-blue-600 dark:text-blue-400">{selectedRecord.caseNumber}</span>
+              </div>
+              <div className="py-2 flex justify-between">
+                <span className="text-slate-400">Integrity Status:</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">Verified SHA-256 Match</span>
+              </div>
+              <div className="py-2 flex justify-between">
+                <span className="text-slate-400">Uploaded By:</span>
+                <span>{selectedRecord.uploadedByName}</span>
+              </div>
+              <div className="py-2 flex justify-between">
+                <span className="text-slate-400">Timestamp:</span>
+                <span>{new Date(selectedRecord.uploadedAt).toLocaleString('en-IN')}</span>
+              </div>
+              <div className="py-2">
+                <span className="text-slate-400 block mb-1">SHA-256 Cryptographic Digest:</span>
+                <div className="font-mono text-[11px] p-2 bg-slate-50 dark:bg-[#0f172a] rounded border border-slate-200 dark:border-[#1e2f5b] select-all break-all">
+                  {selectedRecord.sha256Hash}
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                onClick={() => setSelectedRecord(null)}
+                className="px-4 py-2 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-[#16243e] dark:hover:bg-[#1e2f5b] text-slate-700 dark:text-slate-200"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

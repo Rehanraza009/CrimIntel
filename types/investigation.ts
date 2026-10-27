@@ -283,3 +283,37 @@ export interface IngestionJob {
   createdAt: string;
   completedAt?: string;
 }
+
+export interface DataSource {
+  id: string;
+  name: string;
+  sourceType: EvidenceSourceType;
+  jurisdiction: string;
+  reliabilityScore: number;
+  updateFrequency: string;
+  recordCount: number;
+  status: 'ACTIVE' | 'SYNCING' | 'MAINTENANCE' | 'OFFLINE';
+  lastSyncAt: string;
+  createdAt: string;
+}
+
+export interface FinancialTransaction {
+  id: string;
+  caseId: string;
+  caseNumber?: string;
+  senderEntityId?: string;
+  senderName: string;
+  senderAccount: string;
+  receiverEntityId?: string;
+  receiverName: string;
+  receiverAccount: string;
+  amount: number;
+  currency: string;
+  transactionType: 'IMPS' | 'NEFT' | 'RTGS' | 'UPI' | 'ATM_CASH_WITHDRAWAL' | 'HAWALA_TRANSFER';
+  channel: string;
+  transactionTime: string;
+  sourceEvidenceId?: string;
+  referenceNo: string;
+  status: 'SUCCESS' | 'FLAGGED' | 'BLOCKED';
+}
+

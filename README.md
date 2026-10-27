@@ -25,24 +25,32 @@ Traditional law enforcement investigations into organized cyber fraud, transnati
 
 ---
 
-## 2. Four Core Product Differentiators
+## 2. Core Product Differentiators
 
-1. **Cross-Case Correlation:**
-   Automatically identifies shared burner phone numbers, muling bank accounts, cloned vehicle plates, and safehouse locations across independent FIRs and police jurisdictions.
-2. **Multi-Signal Entity Resolution:**
-   Calculates phonetic name similarity, shared phone numbers, bank accounts, and geographic proximity to propose duplicate candidate entities without silently merging them, preserving human-in-the-loop auditable approval.
-3. **Temporal Knowledge Graph:**
-   Models relationships with timestamps and durations. Allows investigators to filter by date ranges and witness how criminal networks mobilized and transferred assets over time.
-4. **Evidence Provenance & Cryptographic Chain:**
-   Every single node and relationship links back to exact source evidence (file name, page number, row index, and raw excerpt). A blockchain-inspired SHA-256 tamper-evident hash chain guarantees chain of custody.
+1. **Complete Day/Night Theme System:**
+   - Seamless, instant switching between an enterprise **Day Mode** (`#F5F7FB` background, crisp white cards, `#E2E8F0` borders, `#172033` high-contrast typography) and a low-strain **Night Mode** (`#0B1220` navy background, `#111C30` cards, `#263650` borders, `#F1F5F9` text).
+   - Dynamic canvas adaptation for Cytoscape.js graphs and Recharts analytics.
+   - Zero-flash client preference persistence in `localStorage` with OS `prefers-color-scheme` auto-detection.
+2. **Plain-Language Demystification (Basic vs. Advanced View):**
+   - Contextual terminology guide explaining concepts like *Entity*, *Relationship*, *Entity Resolution*, *Temporal Timeline*, *Evidence Provenance*, and *Confidence Score* in plain English.
+   - Interactive Basic / Advanced view toggle on the dashboard for officers and prosecutors.
+3. **Cross-Case Correlation:**
+   - Automatically surfaces shared burner phone numbers, muling bank accounts, cloned vehicle plates, and safehouse locations across independent FIRs and police jurisdictions.
+4. **Multi-Signal Entity Resolution:**
+   - Evaluates phonetic name similarity, shared phone numbers, bank accounts, and geographic proximity to propose duplicate candidate entities without silently merging them, enforcing human-in-the-loop auditable approval.
+5. **Temporal Knowledge Graph:**
+   - Models relationships with timestamps and durations. Allows investigators to filter by date ranges and witness how criminal networks mobilized and transferred assets over time.
+6. **Evidence Provenance & Cryptographic Chain:**
+   - Every single node and relationship links back to exact source evidence (file name, page number, row index, and raw excerpt). A tamper-evident SHA-256 sequential audit chain guarantees chain of custody.
 
 ---
 
 ## 3. Technology Stack
 
 - **Frontend:** Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS
-- **Network Graph:** Cytoscape.js (CoSE force-directed, concentric, and hierarchical layouts)
-- **Analytics Charts:** Recharts (Forensic case distribution, entity classes breakdown)
+- **Theme Engine:** Custom CSS-variable-based theme provider with anti-flash head hydration script and dynamic Cytoscape stylesheet synchronizer
+- **Network Graph:** Cytoscape.js (CoSE force-directed, concentric, and hierarchical layouts) with Day/Night node label backgrounds and edge inspector drawer
+- **Analytics Charts:** Recharts (Forensic case distribution, entity classes breakdown) with adaptive dark/light tooltips and axes
 - **Forms & Validation:** React Hook Form, Zod
 - **Backend & Database:** Supabase (PostgreSQL, Row Level Security, Supabase Auth, Storage)
 - **AI / NLP Engine:** Hybrid architecture supporting external LLM providers (Google Gemini / OpenAI) with an intelligent **Deterministic Forensic NLP Engine** (zero API keys required for offline demo reliability)
@@ -86,8 +94,8 @@ Traditional law enforcement investigations into organized cyber fraud, transnati
 - Node.js 18.x or 20.x or 22.x
 - npm or pnpm
 
-### Installation:
-```bash
+### Installation & Windows PowerShell Setup:
+```powershell
 # Clone the repository
 git clone <repository_url>
 cd CrimIntel
@@ -95,11 +103,17 @@ cd CrimIntel
 # Install dependencies
 npm install --legacy-peer-deps
 
-# Copy environment variables template
-cp .env.example .env.local
+# Copy environment variables template (PowerShell)
+Copy-Item .env.example .env.local
+
+# Run automated test suite (SHA-256, NLP extraction, entity resolution, and dataset targets)
+npm test
 
 # Run the local development server
 npm run dev
+
+# Or verify production build
+npm run build
 ```
 
 Visit `http://localhost:3000` in your web browser.
@@ -110,21 +124,24 @@ Visit `http://localhost:3000` in your web browser.
 
 1. Create a project at [supabase.com](https://supabase.com).
 2. Navigate to the **SQL Editor** in your Supabase dashboard.
-3. Open and run the migration script located at:
+3. Open and run the schema migration script located at:
    `supabase/migrations/20260301000000_crimintel_init.sql`
-4. The migration will configure:
-   - All tables (`profiles`, `cases`, `evidence`, `entities`, `relationships`, `events`, `alerts`, `audit_logs`)
-   - Optimized B-tree indexes for fast graph queries
+4. Run the seed script to populate reproducible demonstration records:
+   `supabase/seed.sql`
+5. The migration and seed configure:
+   - All 16 tables (`profiles`, `cases`, `case_members`, `evidence`, `evidence_records`, `entities`, `entity_identifiers`, `entity_matches`, `relationships`, `events`, `transactions`, `alerts`, `reports`, `audit_logs`, `data_sources`, `processing_jobs`)
+   - Optimized B-tree indexes for fast graph traversal and identifier lookup
    - PostgreSQL Row Level Security (RLS) policies for `ADMIN`, `INVESTIGATOR`, `ANALYST`, and `VIEWER`
    - Strict append-only rules on audit logs
-5. Create a Storage Bucket in Supabase called `investigation-evidence` with private access.
-6. Copy your **Supabase URL** and **Anon Key** into `.env.local`:
+6. Create a Storage Bucket in Supabase called `investigation-evidence` with private access.
+7. Copy your **Supabase URL** and **Anon Key** into `.env.local`:
    ```env
    NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-public-key
+   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-server-only
    ```
 
-*Note: CrimIntel includes an automatic high-fidelity in-browser store fallback. If Supabase environment variables are left blank, the entire application seamlessly runs with complete persistence and rich demonstration data!*
+*Note: CrimIntel includes an automatic high-fidelity in-browser store fallback. If Supabase environment variables are left blank, the entire application seamlessly runs with complete persistence in localStorage and rich demonstration data!*
 
 ---
 

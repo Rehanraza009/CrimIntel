@@ -4,9 +4,10 @@
  */
 
 export async function computeSha256(data: string | ArrayBuffer): Promise<string> {
-  if (typeof window !== 'undefined' && window.crypto && window.crypto.subtle) {
+  const cryptoObj = typeof window !== 'undefined' ? window.crypto : (globalThis as any).crypto;
+  if (cryptoObj && cryptoObj.subtle) {
     const buffer = typeof data === 'string' ? new TextEncoder().encode(data) : data;
-    const hashBuffer = await window.crypto.subtle.digest('SHA-256', buffer);
+    const hashBuffer = await cryptoObj.subtle.digest('SHA-256', buffer);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   }
@@ -56,6 +57,34 @@ export function verifyEvidenceChain(blocks: {
         isValid: false,
         brokenBlockIndex: current.blockIndex,
         error: `Integrity broken at Block #${current.blockIndex}. Previous hash ${current.previousHash.slice(0, 10)}... does not match Block #${prev.blockIndex} hash ${prev.sha256Hash.slice(0, 10)}...`,
+      };
+    }
+  }
+
+  return { isValid: true };
+}
+
+export function verifyAuditChain(logs: {
+  id: string;
+  logHash: string;
+  prevHash: string;
+  createdAt: string;
+}[]): {
+  isValid: boolean;
+  brokenIndex?: number;
+  error?: string;
+} {
+  if (!logs || logs.length <= 1) return { isValid: true };
+  
+  // Sorted in reverse chronological order (newest first: logs[0])
+  for (let i = 0; i < logs.length - 1; i++) {
+    const current = logs[i];
+    const prevEntry = logs[i + 1];
+    if (current.prevHash !== prevEntry.logHash) {
+      return {
+        isValid: false,
+        brokenIndex: i,
+        error: `Audit sequence discrepancy detected at entry #${current.id}. Expected predecessor hash ${current.prevHash.slice(0, 10)}... but found ${prevEntry.logHash.slice(0, 10)}...`,
       };
     }
   }

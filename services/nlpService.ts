@@ -77,17 +77,53 @@ const ORG_SUFFIXES = [
 const NAME_TITLES = ['Shri', 'Smt', 'Mr', 'Mrs', 'Dr', 'Inspector', 'Sub-Inspector', 'ASI', 'Constable', 'Accused', 'Suspect'];
 
 export class NlpService {
-  private static aiProvider = process.env.AI_PROVIDER || 'deterministic_nlp';
-  private static aiApiKey = process.env.AI_API_KEY || '';
+  private static getAiProvider(): string {
+    return process.env.AI_PROVIDER || 'gemini';
+  }
+
+  private static getGeminiKey(): string {
+    return process.env.GEMINI_API_KEY || process.env.AI_API_KEY || '';
+  }
+
+  private static getOpenAiKey(): string {
+    return process.env.OPENAI_API_KEY || '';
+  }
 
   /**
-   * Main entry point to extract entities, relationships, and events from raw text
+   * Main entry point to extract entities, relationships, and events from raw text.
+   * If in browser, delegates to secure server route /api/extract.
+   * If in Node/server, invokes direct LLM provider with deterministic fallback.
    */
   public static async processText(
     text: string,
     sourceFileName: string = 'Investigation_Document.txt'
   ): Promise<ExtractionResult> {
-    if (this.aiApiKey && (this.aiProvider === 'gemini' || this.aiProvider === 'openai')) {
+    // 1. Browser-side dispatch to secure server endpoint
+    if (typeof window !== 'undefined') {
+      try {
+        const res = await fetch('/api/extract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, sourceFileName }),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.data && Array.isArray(json.data.entities)) {
+            return json.data;
+          }
+        }
+      } catch (browserErr) {
+        console.warn('[NlpService] /api/extract dispatch failed; falling back to Deterministic NLP Engine.', browserErr);
+      }
+      return this.extractWithDeterministicNlp(text, sourceFileName);
+    }
+
+    // 2. Server-side or Node.js test runner execution
+    const provider = this.getAiProvider();
+    const geminiKey = this.getGeminiKey();
+    const openAiKey = this.getOpenAiKey();
+
+    if ((provider === 'gemini' && geminiKey) || (provider === 'openai' && openAiKey)) {
       try {
         return await this.extractWithLlm(text, sourceFileName);
       } catch (err) {
@@ -408,24 +444,74 @@ Source document: ${sourceFileName}
 Text:
 ${text}`;
 
-    if (this.aiProvider === 'gemini') {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${this.aiApiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { responseMimeType: 'application/json' }
-        }),
-      });
-      const data = await res.json();
-      const rawJson = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (rawJson) {
-        const parsed = JSON.parse(rawJson);
-        return {
-          entities: (parsed.entities || []).map((e: any) => ({ ...e, method: 'AI_LLM' })),
-          relationships: (parsed.relationships || []).map((r: any) => ({ ...r, method: 'AI_LLM' })),
-          events: parsed.events || [],
-        };
+    const provider = this.getAiProvider();
+    const geminiKey = this.getGeminiKey();
+    const openAiKey = this.getOpenAiKey();
+    const geminiModel = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
+    const openAiModel = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+
+    // Gemini branch
+    if (provider === 'gemini' && geminiKey) {
+      try {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(12000),
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { responseMimeType: 'application/json' }
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const rawJson = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (rawJson) {
+            const parsed = JSON.parse(rawJson);
+            return {
+              entities: (parsed.entities || []).map((e: any) => ({ ...e, method: 'AI_LLM' as const })),
+              relationships: (parsed.relationships || []).map((r: any) => ({ ...r, method: 'AI_LLM' as const })),
+              events: parsed.events || [],
+            };
+          }
+        }
+      } catch (geminiErr) {
+        console.warn('[NlpService] Gemini extraction error:', geminiErr);
+      }
+    }
+
+    // OpenAI branch
+    if ((provider === 'openai' || openAiKey) && openAiKey) {
+      try {
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${openAiKey}`,
+          },
+          signal: AbortSignal.timeout(12000),
+          body: JSON.stringify({
+            model: openAiModel,
+            messages: [
+              { role: 'system', content: 'You are a forensic criminal intelligence extraction assistant. Always output valid JSON.' },
+              { role: 'user', content: prompt }
+            ],
+            response_format: { type: 'json_object' }
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const rawJson = data.choices?.[0]?.message?.content;
+          if (rawJson) {
+            const parsed = JSON.parse(rawJson);
+            return {
+              entities: (parsed.entities || []).map((e: any) => ({ ...e, method: 'AI_LLM' as const })),
+              relationships: (parsed.relationships || []).map((r: any) => ({ ...r, method: 'AI_LLM' as const })),
+              events: parsed.events || [],
+            };
+          }
+        }
+      } catch (openAiErr) {
+        console.warn('[NlpService] OpenAI extraction error:', openAiErr);
       }
     }
 

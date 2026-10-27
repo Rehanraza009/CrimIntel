@@ -275,7 +275,22 @@ CREATE TABLE IF NOT EXISTS public.audit_logs (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 15. PROCESSING JOBS (Ingestion pipeline)
+-- 15. DATA SOURCES (Ingestion Feeds and Agency Gateway Integrations)
+CREATE TABLE IF NOT EXISTS public.data_sources (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL,
+    source_type evidence_source_category_type NOT NULL,
+    jurisdiction TEXT NOT NULL,
+    reliability_score REAL NOT NULL DEFAULT 1.0 CHECK (reliability_score >= 0 AND reliability_score <= 1.0),
+    update_frequency TEXT NOT NULL DEFAULT 'Daily Batch',
+    record_count BIGINT NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'SYNCING', 'MAINTENANCE', 'OFFLINE')),
+    metadata JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 16. PROCESSING JOBS (Ingestion pipeline)
 CREATE TABLE IF NOT EXISTS public.processing_jobs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     case_id UUID NOT NULL REFERENCES public.cases(id) ON DELETE CASCADE,
@@ -293,6 +308,7 @@ CREATE TABLE IF NOT EXISTS public.processing_jobs (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     completed_at TIMESTAMPTZ
 );
+
 
 -- ==============================================================================
 -- DATABASE INDEXES FOR OPTIMIZED INVESTIGATION QUERIES
@@ -398,7 +414,11 @@ ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.alerts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.data_sources ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.processing_jobs ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "data_sources_select_policy" ON public.data_sources FOR SELECT TO authenticated USING (true);
+CREATE POLICY "data_sources_admin_policy" ON public.data_sources FOR ALL TO authenticated USING (public.is_admin());
 
 -- Profiles: Users can read their own or others in the system; Admins can edit
 CREATE POLICY "profiles_select_policy" ON public.profiles FOR SELECT TO authenticated USING (true);

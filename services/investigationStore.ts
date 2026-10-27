@@ -15,6 +15,8 @@ import {
   UserProfile,
   EntityMatchCandidate,
   IngestionJob,
+  DataSource,
+  FinancialTransaction,
 } from '@/types/investigation';
 import {
   DEMO_CASES,
@@ -25,6 +27,8 @@ import {
   DEMO_ALERTS,
   DEMO_AUDIT_LOGS,
   DEMO_PROFILES,
+  DEMO_DATA_SOURCES,
+  DEMO_TRANSACTIONS,
 } from '@/data/syntheticDataset';
 import { computeSha256 } from '@/lib/crypto';
 import { NlpService } from '@/services/nlpService';
@@ -40,37 +44,63 @@ const STORAGE_KEYS = {
   AUDIT: 'crimintel_audit_v1',
   USER: 'crimintel_current_user_v1',
   MATCHES: 'crimintel_matches_v1',
+  DATA_SOURCES: 'crimintel_datasources_v1',
+  TRANSACTIONS: 'crimintel_transactions_v1',
 };
+
+interface StoreCache {
+  user?: UserProfile;
+  cases?: InvestigationCase[];
+  entities?: Entity[];
+  relationships?: Relationship[];
+  evidence?: EvidenceRecord[];
+  events?: TemporalEvent[];
+  alerts?: InvestigationAlert[];
+  audit?: AuditLogEntry[];
+  matches?: EntityMatchCandidate[];
+  dataSources?: DataSource[];
+  transactions?: FinancialTransaction[];
+}
 
 export class InvestigationStore {
   private static isBrowser = typeof window !== 'undefined';
+  private static cache: StoreCache = {};
 
   // Current active user
   public static getCurrentUser(): UserProfile {
+    if (this.cache.user) return this.cache.user;
     if (!this.isBrowser) return DEMO_PROFILES[0];
     const stored = localStorage.getItem(STORAGE_KEYS.USER);
     if (stored) {
-      try { return JSON.parse(stored); } catch (e) {}
+      try {
+        this.cache.user = JSON.parse(stored);
+        return this.cache.user!;
+      } catch (e) {}
     }
-    return DEMO_PROFILES[1]; // Default to Investigator (Insp. Amit Kumar)
+    this.cache.user = DEMO_PROFILES[1];
+    return this.cache.user;
   }
 
   public static setCurrentUser(user: UserProfile): void {
-    if (!this.isBrowser) return;
-    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+    this.cache.user = user;
+    if (this.isBrowser) localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
   }
 
   // 1. CASES
   public static getCases(): InvestigationCase[] {
+    if (this.cache.cases) return this.cache.cases;
     if (!this.isBrowser) return DEMO_CASES;
     const stored = localStorage.getItem(STORAGE_KEYS.CASES);
     if (!stored) {
       this.resetToDefaults();
+      this.cache.cases = DEMO_CASES;
       return DEMO_CASES;
     }
     try {
-      return JSON.parse(stored);
+      this.cache.cases = JSON.parse(stored);
+      return this.cache.cases!;
     } catch {
+      this.cache.cases = DEMO_CASES;
       return DEMO_CASES;
     }
   }
@@ -123,18 +153,25 @@ export class InvestigationStore {
   }
 
   private static saveCases(cases: InvestigationCase[]) {
+    this.cache.cases = cases;
     if (this.isBrowser) localStorage.setItem(STORAGE_KEYS.CASES, JSON.stringify(cases));
   }
 
   // 2. ENTITIES
   public static getEntities(caseId?: string): Entity[] {
-    if (!this.isBrowser) return caseId ? DEMO_ENTITIES.filter(e => e.caseId === caseId) : DEMO_ENTITIES;
-    const stored = localStorage.getItem(STORAGE_KEYS.ENTITIES);
-    const entities: Entity[] = stored ? JSON.parse(stored) : DEMO_ENTITIES;
-    if (caseId) {
-      return entities.filter(e => e.caseId === caseId || (e.connectedCases && e.connectedCases.includes(caseId)));
+    let all = this.cache.entities;
+    if (!all) {
+      if (!this.isBrowser) all = DEMO_ENTITIES;
+      else {
+        const stored = localStorage.getItem(STORAGE_KEYS.ENTITIES);
+        all = stored ? JSON.parse(stored) : DEMO_ENTITIES;
+      }
+      this.cache.entities = all;
     }
-    return entities;
+    if (caseId) {
+      return all!.filter(e => e.caseId === caseId || (e.connectedCases && e.connectedCases.includes(caseId)));
+    }
+    return all!;
   }
 
   public static getEntityById(id: string): Entity | undefined {
@@ -170,18 +207,26 @@ export class InvestigationStore {
   }
 
   private static saveEntities(entities: Entity[]) {
+    this.cache.entities = entities;
+    this.cache.matches = undefined; // invalidate candidate resolution cache
     if (this.isBrowser) localStorage.setItem(STORAGE_KEYS.ENTITIES, JSON.stringify(entities));
   }
 
   // 3. RELATIONSHIPS
   public static getRelationships(caseId?: string): Relationship[] {
-    if (!this.isBrowser) return caseId ? DEMO_RELATIONSHIPS.filter(r => r.caseId === caseId) : DEMO_RELATIONSHIPS;
-    const stored = localStorage.getItem(STORAGE_KEYS.RELATIONSHIPS);
-    const rels: Relationship[] = stored ? JSON.parse(stored) : DEMO_RELATIONSHIPS;
-    if (caseId) {
-      return rels.filter(r => r.caseId === caseId);
+    let all = this.cache.relationships;
+    if (!all) {
+      if (!this.isBrowser) all = DEMO_RELATIONSHIPS;
+      else {
+        const stored = localStorage.getItem(STORAGE_KEYS.RELATIONSHIPS);
+        all = stored ? JSON.parse(stored) : DEMO_RELATIONSHIPS;
+      }
+      this.cache.relationships = all;
     }
-    return rels;
+    if (caseId) {
+      return all!.filter(r => r.caseId === caseId);
+    }
+    return all!;
   }
 
   public static createRelationship(relData: Partial<Relationship>): Relationship {
@@ -214,18 +259,25 @@ export class InvestigationStore {
   }
 
   private static saveRelationships(rels: Relationship[]) {
+    this.cache.relationships = rels;
     if (this.isBrowser) localStorage.setItem(STORAGE_KEYS.RELATIONSHIPS, JSON.stringify(rels));
   }
 
   // 4. EVIDENCE & TAMPER-EVIDENT CHAIN
   public static getEvidence(caseId?: string): EvidenceRecord[] {
-    if (!this.isBrowser) return caseId ? DEMO_EVIDENCE.filter(e => e.caseId === caseId) : DEMO_EVIDENCE;
-    const stored = localStorage.getItem(STORAGE_KEYS.EVIDENCE);
-    const records: EvidenceRecord[] = stored ? JSON.parse(stored) : DEMO_EVIDENCE;
-    if (caseId) {
-      return records.filter(e => e.caseId === caseId);
+    let all = this.cache.evidence;
+    if (!all) {
+      if (!this.isBrowser) all = DEMO_EVIDENCE;
+      else {
+        const stored = localStorage.getItem(STORAGE_KEYS.EVIDENCE);
+        all = stored ? JSON.parse(stored) : DEMO_EVIDENCE;
+      }
+      this.cache.evidence = all;
     }
-    return records;
+    if (caseId) {
+      return all!.filter(e => e.caseId === caseId);
+    }
+    return all!;
   }
 
   public static async addEvidence(
@@ -279,18 +331,25 @@ export class InvestigationStore {
   }
 
   private static saveEvidence(records: EvidenceRecord[]) {
+    this.cache.evidence = records;
     if (this.isBrowser) localStorage.setItem(STORAGE_KEYS.EVIDENCE, JSON.stringify(records));
   }
 
   // 5. TEMPORAL EVENTS
   public static getEvents(caseId?: string): TemporalEvent[] {
-    if (!this.isBrowser) return caseId ? DEMO_EVENTS.filter(e => e.caseId === caseId) : DEMO_EVENTS;
-    const stored = localStorage.getItem(STORAGE_KEYS.EVENTS);
-    const events: TemporalEvent[] = stored ? JSON.parse(stored) : DEMO_EVENTS;
-    if (caseId) {
-      return events.filter(e => e.caseId === caseId);
+    let all = this.cache.events;
+    if (!all) {
+      if (!this.isBrowser) all = DEMO_EVENTS;
+      else {
+        const stored = localStorage.getItem(STORAGE_KEYS.EVENTS);
+        all = stored ? JSON.parse(stored) : DEMO_EVENTS;
+      }
+      this.cache.events = all;
     }
-    return events;
+    if (caseId) {
+      return all!.filter(e => e.caseId === caseId);
+    }
+    return all!;
   }
 
   public static addEvent(eventData: Partial<TemporalEvent>): TemporalEvent {
@@ -312,18 +371,25 @@ export class InvestigationStore {
   }
 
   private static saveEvents(events: TemporalEvent[]) {
+    this.cache.events = events;
     if (this.isBrowser) localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
   }
 
   // 6. ALERTS
   public static getAlerts(caseId?: string): InvestigationAlert[] {
-    if (!this.isBrowser) return caseId ? DEMO_ALERTS.filter(a => a.caseId === caseId) : DEMO_ALERTS;
-    const stored = localStorage.getItem(STORAGE_KEYS.ALERTS);
-    const alerts: InvestigationAlert[] = stored ? JSON.parse(stored) : DEMO_ALERTS;
-    if (caseId) {
-      return alerts.filter(a => a.caseId === caseId);
+    let all = this.cache.alerts;
+    if (!all) {
+      if (!this.isBrowser) all = DEMO_ALERTS;
+      else {
+        const stored = localStorage.getItem(STORAGE_KEYS.ALERTS);
+        all = stored ? JSON.parse(stored) : DEMO_ALERTS;
+      }
+      this.cache.alerts = all;
     }
-    return alerts;
+    if (caseId) {
+      return all!.filter(a => a.caseId === caseId);
+    }
+    return all!;
   }
 
   public static updateAlertStatus(id: string, status: InvestigationAlert['status']): void {
@@ -368,13 +434,16 @@ export class InvestigationStore {
   }
 
   private static saveAlerts(alerts: InvestigationAlert[]) {
+    this.cache.alerts = alerts;
     if (this.isBrowser) localStorage.setItem(STORAGE_KEYS.ALERTS, JSON.stringify(alerts));
   }
 
   // 7. ENTITY RESOLUTION MATCHES
   public static getMatchCandidates(): EntityMatchCandidate[] {
+    if (this.cache.matches) return this.cache.matches;
     const entities = this.getEntities();
-    return EntityResolutionService.findDuplicateCandidates(entities);
+    this.cache.matches = EntityResolutionService.findDuplicateCandidates(entities);
+    return this.cache.matches;
   }
 
   public static mergeEntities(sourceId: string, candidateId: string, reviewedBy: string): boolean {
@@ -421,9 +490,11 @@ export class InvestigationStore {
 
   // 8. AUDIT LOGS (APPEND-ONLY)
   public static getAuditLogs(): AuditLogEntry[] {
+    if (this.cache.audit) return this.cache.audit;
     if (!this.isBrowser) return DEMO_AUDIT_LOGS;
     const stored = localStorage.getItem(STORAGE_KEYS.AUDIT);
-    return stored ? JSON.parse(stored) : DEMO_AUDIT_LOGS;
+    this.cache.audit = stored ? JSON.parse(stored) : DEMO_AUDIT_LOGS;
+    return this.cache.audit!;
   }
 
   public static async addAuditLog(
@@ -458,6 +529,7 @@ export class InvestigationStore {
     };
 
     logs.unshift(newLog);
+    this.cache.audit = logs;
     if (this.isBrowser) localStorage.setItem(STORAGE_KEYS.AUDIT, JSON.stringify(logs.slice(0, 100)));
     return newLog;
   }
@@ -620,8 +692,35 @@ export class InvestigationStore {
     };
   }
 
-  // 10. RESET TO DEFAULTS
+  // 10. DATA SOURCES
+  public static getDataSources(): DataSource[] {
+    if (this.cache.dataSources) return this.cache.dataSources;
+    if (!this.isBrowser) return DEMO_DATA_SOURCES;
+    const stored = localStorage.getItem(STORAGE_KEYS.DATA_SOURCES);
+    this.cache.dataSources = stored ? JSON.parse(stored) : DEMO_DATA_SOURCES;
+    return this.cache.dataSources!;
+  }
+
+  // 11. FINANCIAL TRANSACTIONS
+  public static getTransactions(caseId?: string): FinancialTransaction[] {
+    let all = this.cache.transactions;
+    if (!all) {
+      if (!this.isBrowser) all = DEMO_TRANSACTIONS;
+      else {
+        const stored = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
+        all = stored ? JSON.parse(stored) : DEMO_TRANSACTIONS;
+      }
+      this.cache.transactions = all;
+    }
+    if (caseId) {
+      return all!.filter(t => t.caseId === caseId);
+    }
+    return all!;
+  }
+
+  // 12. RESET TO DEFAULTS
   public static resetToDefaults(): void {
+    this.cache = {};
     if (!this.isBrowser) return;
     localStorage.setItem(STORAGE_KEYS.CASES, JSON.stringify(DEMO_CASES));
     localStorage.setItem(STORAGE_KEYS.ENTITIES, JSON.stringify(DEMO_ENTITIES));
@@ -630,6 +729,9 @@ export class InvestigationStore {
     localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(DEMO_EVENTS));
     localStorage.setItem(STORAGE_KEYS.ALERTS, JSON.stringify(DEMO_ALERTS));
     localStorage.setItem(STORAGE_KEYS.AUDIT, JSON.stringify(DEMO_AUDIT_LOGS));
+    localStorage.setItem(STORAGE_KEYS.DATA_SOURCES, JSON.stringify(DEMO_DATA_SOURCES));
+    localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(DEMO_TRANSACTIONS));
     localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(DEMO_PROFILES[1]));
   }
 }
+
