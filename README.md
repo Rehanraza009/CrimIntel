@@ -198,3 +198,6 @@ Judges can execute this complete end-to-end investigation scenario in under 2 mi
 
 Developed for the **Smart India Hackathon (SIH26189)**.  
 Submitted under the **Ministry of Home Affairs (MHA) – National Crime Records Bureau (NCRB)**, Women Safety Division.
+
+## 10. Contribution
+Niharika Swain, Rehan Raza
